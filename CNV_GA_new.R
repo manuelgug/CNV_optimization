@@ -39,7 +39,7 @@ formating_ampCov <- function(amplicon_coverage, loci_of_interest) {
 
 estCNV <- function(data, sample.name="<sample>", plot.gam=F, verbose=F, k.gam=4,
                    loci.of.interest=c("HRP2","HRP3","MDR1","MDR2","PM1","PM2","PM3","PM4"), 
-                   amp.to.remove=c("Pf3D7_05_v3-960810-961048-1B", "Pf3D7_03_v3-85507-85756-1A"),
+                   amp.to.remove=c(""), # amp.to.remove=c("Pf3D7_05_v3-960810-961048-1B", "Pf3D7_03_v3-85507-85756-1A")
                    threshold = 50){
   
   if(median(data[,"OutputPostprocessing"] < threshold)){ ##MODIFY AS DESIRED (2500 SEEMS GOOD AFTER NORMALIZATION OF SAMPLES ACROSS miseq/nextseq RUNS)
@@ -96,25 +96,42 @@ estCNV <- function(data, sample.name="<sample>", plot.gam=F, verbose=F, k.gam=4,
   }
 }
 
-#----------################################ PRIEBA 1 ################################
+
+### ---------------EXPECTED FOLD CHANGE FOR EACH SCONTROL AMPLE FROM THE DATASET --------------------
+
+# dataframe: col1 = filename; col2 = controlname (use onle 100% strains, no gradients); col3 = loci; col4 = expected_foldchange 
+
+
+
+
+
+
+#----------################################ PRUEBA 1 ################################
 
 #------------------------------FORMATTING------------------------------------
 
 #input amplicon coverage file
-amplicon_coverage <- read.table("CNV_runs_sample_coverage/HFS_NextSeq01_amplicon_coverage_DD2.txt", header = TRUE)
+filepath = "CNV_runs_sample_coverage/HFS_NextSeq01_amplicon_coverage_DD2.txt"
+filename = basename(filepath)
+
+amplicon_coverage <- read.table(filepath, header = TRUE)
 
 #format input for estCNV
 amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_coverage, loci_of_interest = loci_of_interest)
 
 #---------------------------FOLD CHANGE ESTIMATION--------------------------------
 
-estCNV(amplicon_coverage_formatted, sample.name = "N3D7_Dd2_k13_0_S162")
+sample_name = "N3D7_Dd2_k13_0_S162"
+
+estCNV(amplicon_coverage_formatted[amplicon_coverage_formatted$SampleID == sample_name, ], sample.name = sample_name, plot.gam = T)
 
 
 
 
 
-unique(amplicon_coverage_formatted$SampleID)
+
+
+
 
 
 
