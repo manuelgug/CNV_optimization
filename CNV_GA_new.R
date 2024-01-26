@@ -101,7 +101,7 @@ estCNV <- function(data, sample.name="<sample>", plot.gam=F, verbose=F, k.gam=4,
 
 # dataframe: col1 = filename; col2 = controlname (use onle 100% strains, no gradients); col3 = loci; col4 = expected_foldchange 
 
-
+expected_foldchanges <- read.csv("expected_foldchanges.csv")
 
 
 
