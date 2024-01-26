@@ -1,5 +1,6 @@
 library(stringr)
 library(mgcv)
+library(GA)
 
 #-------------------INPUT loci of interest for reference ----------------------
 
@@ -106,7 +107,7 @@ expected_foldchanges <- read.csv("expected_foldchanges.csv")
 #------------------------------FORMATING------------------------------------
 
 #input amplicon coverage file
-filepath = "CNV_runs_sample_coverage/230321_M07977_0008_000000000-KHJKK_amplicon_coverage_DD2_HB3.txt"
+filepath = "CNV_runs_sample_coverage/MULB_NextSeq01_amplicon_coverage_DD2.txt"
 filename = basename(filepath)
 
 amplicon_coverage <- read.table(filepath, header = TRUE)
@@ -116,36 +117,75 @@ amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_cov
 
 #---------------------------FOLD CHANGE ESTIMATION--------------------------------
 
-unique(amplicon_coverage_formatted$SampleID)
 
-sample_name = "3D7-HB3-2-98-10K_S96_L001"
-
-estCNV(amplicon_coverage_formatted[amplicon_coverage_formatted$SampleID == sample_name, ], sample.name = sample_name, plot.gam = T)
 
 
 ###############C GENETIC ALGO ####################3
 
 #this is the amplicon table that will be referenced by the GA. 1 = used, 0 = left out
-amp_table <- data.frame(amplicons = unique(amplicon_coverage_formatted$Locus), used = 1)
+#amp_table <- data.frame(amplicons = unique(amplicon_coverage_formatted$Locus), used = 1)
 
+unique_amplicons <- unique(amplicon_coverage_formatted$Locus)
 
-#for (control in unique(expected_foldchanges$control_name){
+## SUBSET AMPLICONS FUNCTION
+subsetAmplicons <- function(amplicon_indices, all_amplicons) {
+  selected_amplicons <- all_amplicons[amplicon_indices == 1]
+  return(selected_amplicons)
+}
 
-# 1.- CHOOSE a random subset of amplicons by subsampling from the sample data. randomly change 0's and 1's in the amp_table
+#FITNESS FUNCTION
+fitness_function <- function(selected_amplicons){
+  
+  # 1.- Select sample from expected_foldchanges
+  sample_name <- "NDd2100Ka_S7"
+  expected_foldchanges_loci <- expected_foldchanges[expected_foldchanges$control_name == sample_name,][3:4] #keep only 
 
-# 2.- subset the actual sample data
+  # 2.- subset sample data
+  sample_subset <- amplicon_coverage_formatted[amplicon_coverage_formatted$SampleID == sample_name, ]
+  
+  # 2.- subset amplicons
+  excluded_amplicons <- setdiff(unique_amplicons, selected_amplicons)
+  sample_subset <- sample_subset[!(sample_subset$Locus %in% excluded_amplicons),]
+  
+  # Check if sample_subset is empty
+  if (nrow(sample_subset) == 0) {
+    print("No rows left after amplicon subset. Returning Inf RMSE.")
+    return(Inf)
+  }
+  
+  # 3.- run estCNV
+  result_CNV <- estCNV(data = sample_subset, sample.name = sample_name, plot.gam = T)
 
-# 3.- run estCNV
+  # 3.- extract and format the $fc.locus elements corresponding to the loci from expected_foldchanges_loci
+  fc <- as.data.frame(result_CNV$fc.locus[expected_foldchanges_loci$locus])
+  observed_foldchanges_loci <- data.frame(loci = rownames(fc), observed_foldchange = fc[,1], row.names=NULL)
+  
+  # 4.- calculate RMSE
+  rmse <- sqrt(mean((expected_foldchanges_loci$expected_foldchange - observed_foldchanges_loci$observed_foldchange)^2))
+  print(rmse)
+  
+  return(rmse)
+}
 
-# 4.- extract the $fc.locus element
+# Example usage:
+initial_population <- matrix(sample(c(0, 1), size = length(unique_amplicons), replace = TRUE), nrow = 1)
 
-# 5.- evaluate the closeness (see fitness function) to optimal fold change from loci
+# Convert binary vector to amplicon subset
+selected_amplicons <- subsetAmplicons(initial_population, unique_amplicons)
 
-# 6.- append amps used + fitness score to table
+# Now, pass 'selected_amplicons' to the fitness function
+fitness_value <- fitness_function(selected_amplicons)
 
-#}
+# Define GA parameters
+pop_size <- 100
+generations <- 3000
+mutation_prob <- 0.01
+crossover_prob <- 0.8
+elitism <- 2
+chrom_length <- length(unique_amplicons)
 
-
+# Run GA
+ga_result <- ga(type = "binary", fitness = fitness_function, nBits = chrom_length, popSize = pop_size, maxiter = generations, pmutation = mutation_prob, pcrossover = crossover_prob, elitism = elitism, keepBest = TRUE, seed = 420)
 
 
 
