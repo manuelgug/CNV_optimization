@@ -97,21 +97,16 @@ estCNV <- function(data, sample.name="<sample>", plot.gam=F, verbose=F, k.gam=4,
 }
 
 
-### ---------------EXPECTED FOLD CHANGE FOR EACH SCONTROL AMPLE FROM THE DATASET --------------------
-
-# dataframe: col1 = filename; col2 = controlname (use onle 100% strains, no gradients); col3 = loci; col4 = expected_foldchange 
-
+### ---------------EXPECTED FOLD CHANGE FOR EACH SCONTROL SAMPLE FROM THE DATASET --------------------
 expected_foldchanges <- read.csv("expected_foldchanges.csv")
-
-
 
 
 #----------################################ PRUEBA 1 ################################
 
-#------------------------------FORMATTING------------------------------------
+#------------------------------FORMATING------------------------------------
 
 #input amplicon coverage file
-filepath = "CNV_runs_sample_coverage/HFS_NextSeq01_amplicon_coverage_DD2.txt"
+filepath = "CNV_runs_sample_coverage/230321_M07977_0008_000000000-KHJKK_amplicon_coverage_DD2_HB3.txt"
 filename = basename(filepath)
 
 amplicon_coverage <- read.table(filepath, header = TRUE)
@@ -121,9 +116,47 @@ amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_cov
 
 #---------------------------FOLD CHANGE ESTIMATION--------------------------------
 
-sample_name = "N3D7_Dd2_k13_0_S162"
+unique(amplicon_coverage_formatted$SampleID)
+
+sample_name = "3D7-HB3-2-98-10K_S96_L001"
 
 estCNV(amplicon_coverage_formatted[amplicon_coverage_formatted$SampleID == sample_name, ], sample.name = sample_name, plot.gam = T)
+
+
+###############C GENETIC ALGO ####################3
+
+#this is the amplicon table that will be referenced by the GA. 1 = used, 0 = left out
+amp_table <- data.frame(amplicons = unique(amplicon_coverage_formatted$Locus), used = 1)
+
+
+#for (control in unique(expected_foldchanges$control_name){
+
+# 1.- CHOOSE a random subset of amplicons by subsampling from the sample data. randomly change 0's and 1's in the amp_table
+
+# 2.- subset the actual sample data
+
+# 3.- run estCNV
+
+# 4.- extract the $fc.locus element
+
+# 5.- evaluate the closeness (see fitness function) to optimal fold change from loci
+
+# 6.- append amps used + fitness score to table
+
+#}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
