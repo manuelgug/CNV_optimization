@@ -2,7 +2,7 @@
 
 ## Objective
 
-The objective of this script is to optimize the selection of amplicons (from ampseq) for the calculation of copy number variants (CNVs) in _Plasmodium falciparum_ through the use of a Generalized Additive Model (GAM). To achieve this, a genetic algorithm (GA) is employed to systematically identify the most informative set of amplicons from a larger pool.
+The objective of this script is to optimize the selection of amplicons (from ampseq data) for the calculation of copy number variants (CNVs) in _Plasmodium falciparum_ through the use of a Generalized Additive Model (GAM). To achieve this, a genetic algorithm (GA) is employed to systematically identify the most informative set of amplicons from a larger pool.
 
 ## Functionality Overview
 
