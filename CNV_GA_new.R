@@ -286,27 +286,24 @@ ggplot(pca_df, aes(x = PC1, y = PC2)) +
 #percentage of controls that used each amplicon
 amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
 amplicon_results$percentage_used <- rowSums(merged_GA_result[, -1])/ length(merged_GA_result[, -1])
+amplicon_results$loci <- NA  # Initialize the column with NAs
 
+for (f in 1:length(loci_of_interest)) {
+  matching_amplicons <- amplicon_results$amplicon %in% loci_of_interest[[f]]
+  amplicon_results$loci[matching_amplicons] <- names(loci_of_interest)[f]
+}
 
-# Sort the data frame by percentage_used in descending order
 amplicon_results <- amplicon_results[order(-amplicon_results$percentage_used), ]
 
-all_loci_amplicons <- unique(unlist(loci_of_interest))
-
 # Create a sorted barplot using ggplot2
-ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percentage_used)) +
-  geom_bar(stat = "identity", fill = "skyblue") +
+ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percentage_used, fill = loci)) +
+  geom_bar(stat = "identity") +
   labs(title = "Percentage of Amplicons Used by GA",
        x = "Amplicon",
        y = "Percentage Used") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
   # Add orange color to bars corresponding to amplicons in all_loci_amplicons
-  geom_bar(data = amplicon_results[amplicon_results$amplicon %in% all_loci_amplicons, ],
-           aes(x = reorder(amplicon, -percentage_used), y = percentage_used),
-           stat = "identity", fill = "orange")
-  
-
-
+  scale_fill_manual(values = c("red", "blue", "green", "purple", "yellow", "pink", "orange", "black"))
 
 
 #testing common amplicons between 2 runs:
