@@ -107,7 +107,7 @@ expected_foldchanges$filepaths <- expected_foldchanges_filepaths
   
 
 
-### INIT FUNC
+### INIT LOOP
 #------------------------------FORMATING------------------------------------
 
 results_list <- list()
@@ -246,20 +246,40 @@ for (i in seq_along(results_list)) {
   results_list[[i]] <- setNames(results_list[[i]], c("amplicon", col_name))
 }
 
-merged_result <- results_list[[1]]
+merged_GA_result <- results_list[[1]]
 for (i in 2:length(results_list)) {
-  merged_result <- merge(merged_result, results_list[[i]], by = "amplicon", all = TRUE)
+  merged_GA_result <- merge(merged_GA_result, results_list[[i]], by = "amplicon", all = TRUE)
 }
 
-colnames(merged_result)[-1] <- basename(names(results_list))
+colnames(merged_GA_result)[-1] <- basename(names(results_list))
+
+
+#---------------------------- ANALYZE RESULTS ---------------------------
+
+amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
+
+amplicon_results$percentage_used <- rowSums(merged_result[, -1])/ length(merged_result[, -1])
 
 
 
+library(ggplot2)
 
+# Sort the data frame by percentage_used in descending order
+amplicon_results <- amplicon_results[order(-amplicon_results$percentage_used), ]
 
-### check for 1) amplicons shared by all runs only and 2) exclude amplicons that are elft out in all runs
-  
-  
+all_loci_amplicons <- unique(unlist(loci_of_interest))
+
+# Create a sorted barplot using ggplot2
+ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percentage_used)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Percentage of Amplicons Used by GA",
+       x = "Amplicon",
+       y = "Percentage Used") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
+  # Add red color to bars corresponding to amplicons in all_loci_amplicons
+  geom_bar(data = amplicon_results[amplicon_results$amplicon %in% all_loci_amplicons, ],
+           aes(x = reorder(amplicon, -percentage_used), y = percentage_used),
+           stat = "identity", fill = "orange")
   
 
 #testing common amplicons between 2 runs:
