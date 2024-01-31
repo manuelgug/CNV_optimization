@@ -240,6 +240,19 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
 }
 
 
+# Merge resulting dataframes
+for (i in seq_along(results_list)) {
+  col_name <- paste0("used_amplicons_", i)
+  results_list[[i]] <- setNames(results_list[[i]], c("amplicon", col_name))
+}
+
+merged_result <- results_list[[1]]
+for (i in 2:length(results_list)) {
+  merged_result <- merge(merged_result, results_list[[i]], by = "amplicon", all = TRUE)
+}
+
+colnames(merged_result)[-1] <- basename(names(results_list))
+
 
 
 
