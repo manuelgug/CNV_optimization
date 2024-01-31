@@ -198,7 +198,7 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   
   # Define GA parameters
   pop_size <- 100
-  generations <- 3
+  generations <- 40
   mutation_prob <- 0.1
   crossover_prob <- 0.8
   elitism <- 10
@@ -254,13 +254,38 @@ for (i in 2:length(results_list)) {
 
 colnames(merged_GA_result)[-1] <- basename(names(results_list))
 
+#checkpoint
+#write.csv(merged_GA_result, "merged_GA_result.csv") ################################
 
 #---------------------------- ANALYZE RESULTS ---------------------------
 
-amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
+# 1) pca
+
+# Exclude the first column (amplicon names) for PCA
+pca_data <- merged_GA_result[, -1]
+pca_data  <- t(pca_data)
+
+# Perform Principal Component Analysis
+pca_result <- prcomp(pca_data, scale. = TRUE)
+
+# Access the results
+summary(pca_result)
+
+pca_df <- as.data.frame(pca_result$x)
+
+ggplot(pca_df, aes(x = PC1, y = PC2)) +
+  geom_point(size = 4) +
+  labs(title = "PCA of merged_GA_result",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+
+
+# 2) barplot of percentage of controls that used each amplicon
 
 #percentage of controls that used each amplicon
-amplicon_results$percentage_used <- rowSums(merged_result[, -1])/ length(merged_result[, -1])
+amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
+amplicon_results$percentage_used <- rowSums(merged_GA_result[, -1])/ length(merged_GA_result[, -1])
 
 
 # Sort the data frame by percentage_used in descending order
