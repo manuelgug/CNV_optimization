@@ -1,6 +1,7 @@
 library(stringr)
 library(mgcv)
 library(GA)
+library(ggplot2)
 
 #-------------------INPUT loci of interest for reference ----------------------
 
@@ -258,11 +259,9 @@ colnames(merged_GA_result)[-1] <- basename(names(results_list))
 
 amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
 
+#percentage of controls that used each amplicon
 amplicon_results$percentage_used <- rowSums(merged_result[, -1])/ length(merged_result[, -1])
 
-
-
-library(ggplot2)
 
 # Sort the data frame by percentage_used in descending order
 amplicon_results <- amplicon_results[order(-amplicon_results$percentage_used), ]
@@ -276,11 +275,14 @@ ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percen
        x = "Amplicon",
        y = "Percentage Used") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
-  # Add red color to bars corresponding to amplicons in all_loci_amplicons
+  # Add orange color to bars corresponding to amplicons in all_loci_amplicons
   geom_bar(data = amplicon_results[amplicon_results$amplicon %in% all_loci_amplicons, ],
            aes(x = reorder(amplicon, -percentage_used), y = percentage_used),
            stat = "identity", fill = "orange")
   
+
+
+
 
 #testing common amplicons between 2 runs:
 
