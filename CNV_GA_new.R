@@ -98,18 +98,21 @@ estCNV <- function(data, sample.name="<sample>", plot.gam=F, verbose=F, k.gam=4,
 }
 
 
-### ---------------EXPECTED FOLD CHANGE FOR EACH SCONTROL SAMPLE FROM THE DATASET --------------------
+### ---------------EXPECTED FOLD CHANGE FOR EACH CONTROL SAMPLE FROM THE DATASET --------------------
 expected_foldchanges <- read.csv("expected_foldchanges.csv")
 
+expected_foldchanges_filepaths <-  paste0("CNV_runs_sample_coverage/", expected_foldchanges$filename)
 
-#----------################################ PRUEBA 1 ################################
+expected_foldchanges$filepaths <- expected_foldchanges_filepaths
+  
 
+
+### INIT FUNC
 #------------------------------FORMATING------------------------------------
 
 #input amplicon coverage file
-filepath = "CNV_runs_sample_coverage/REACT2_NextSeq01_amplicon_coverage_DD2.txt"
+filepath = expected_foldchanges$filepaths[4] #go file by file <---!!!!!!!!!!!!!!!!!!!!!!!!!!1
 filename = basename(filepath)
-
 amplicon_coverage <- read.table(filepath, header = TRUE)
 
 #format input for estCNV
@@ -117,14 +120,12 @@ amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_cov
 
 #---------------------------FOLD CHANGE ESTIMATION--------------------------------
 
-
-
-
 ###############C GENETIC ALGO ####################3
 
 #this is the amplicon table that will be referenced by the GA. 1 = used, 0 = left out
 #amp_table <- data.frame(amplicons = unique(amplicon_coverage_formatted$Locus), used = 1)
 
+sample_name_ <- expected_foldchanges$control_name[4] #go control by control <---!!!!!!!!!!!!!!!!!!!!!!!!!!1
 unique_amplicons <- unique(amplicon_coverage_formatted$Locus)
 
 # SUBSET AMPLICONS FUNCTION
@@ -134,7 +135,7 @@ subsetAmplicons <- function(amplicon_indices, all_amplicons) {
 }
 
 # FITNESS FUNCTION
-fitness_function <- function(amplicon_indices, sample_name = "NDd2_100Kc_S199_L001") {
+fitness_function <- function(amplicon_indices, sample_name = sample_name_) {
   selected_amplicons <- subsetAmplicons(amplicon_indices, unique_amplicons)
   
   # Ensure at least one amplicon from each locus of interest is selected
@@ -183,7 +184,7 @@ plot_fitness <- function(obj) {
 
 # Define GA parameters
 pop_size <- 100
-generations <- 20
+generations <- 40
 mutation_prob <- 0.1
 crossover_prob <- 0.8
 elitism <- 10
@@ -213,13 +214,14 @@ used_amplicons <- best_solution$amplicons[best_solution$used_amplicons == 1]
 loci_used <- sapply(loci_of_interest, function(locus_amplicons) any(locus_amplicons %in% used_amplicons))
 
 if (sum(loci_used) == length(names(loci_used))){
-  print("At least 1 amplicon of all loci of interest was used")
+  print("At least 1 amplicon of each loci of interest was used")
 }else{
   print(paste("No", names(loci_used[loci_used == FALSE]), "amplicons were used"))
 }
 
+### END FUNC, return list with each filepath +  control and best solution.
 
-## to do: DON'T ALLOW THE ALGO TO GIVE RESULTS IF THERE IS NOT AT LEAST 1 AMPLICON FOR EACH loci_of_interest ##
+
 
 
 #testing common amplicons between 2 runs:
