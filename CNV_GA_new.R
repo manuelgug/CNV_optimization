@@ -107,7 +107,7 @@ expected_foldchanges <- read.csv("expected_foldchanges.csv")
 #------------------------------FORMATING------------------------------------
 
 #input amplicon coverage file
-filepath = "CNV_runs_sample_coverage/MULB_NextSeq01_amplicon_coverage_DD2.txt"
+filepath = "CNV_runs_sample_coverage/REACT2_NextSeq01_amplicon_coverage_DD2.txt"
 filename = basename(filepath)
 
 amplicon_coverage <- read.table(filepath, header = TRUE)
@@ -134,8 +134,17 @@ subsetAmplicons <- function(amplicon_indices, all_amplicons) {
 }
 
 # FITNESS FUNCTION
-fitness_function <- function(amplicon_indices, sample_name = "NDd2100Ka_S7"){
+fitness_function <- function(amplicon_indices, sample_name = "NDd2_100Kc_S199_L001") {
   selected_amplicons <- subsetAmplicons(amplicon_indices, unique_amplicons)
+  
+  # Ensure at least one amplicon from each locus of interest is selected
+  for (locus in names(loci_of_interest)) {
+    locus_amplicons <- loci_of_interest[[locus]]
+    if (all(!(locus_amplicons %in% selected_amplicons))) {
+      # If none of the locus amplicons are selected, select one randomly
+      selected_amplicons <- c(selected_amplicons, sample(locus_amplicons, 1))
+    }
+  }
   
   # Subset sample data
   sample_subset <- amplicon_coverage_formatted[amplicon_coverage_formatted$SampleID == sample_name, ]
@@ -154,6 +163,8 @@ fitness_function <- function(amplicon_indices, sample_name = "NDd2100Ka_S7"){
   result_CNV <- estCNV(data = sample_subset, sample.name = sample_name, plot.gam = F)
   
   # Extract and format the $fc.locus elements corresponding to the loci from expected_foldchanges_loci
+  expected_foldchanges_loci <- expected_foldchanges[expected_foldchanges$control_name == sample_name, ][3:4]
+  
   fc <- as.data.frame(result_CNV$fc.locus[expected_foldchanges_loci$locus])
   observed_foldchanges_loci <- data.frame(loci = rownames(fc), observed_foldchange = fc[,1], row.names=NULL)
   
@@ -171,8 +182,8 @@ plot_fitness <- function(obj) {
 }
 
 # Define GA parameters
-pop_size <- 50
-generations <- 1000
+pop_size <- 100
+generations <- 20
 mutation_prob <- 0.1
 crossover_prob <- 0.8
 elitism <- 10
@@ -184,24 +195,54 @@ ga_result <- ga(type = "binary", fitness = fitness_function, nBits = chrom_lengt
                 pcrossover = crossover_prob, elitism = elitism, keepBest = TRUE,
                 run = 100, monitor = plot_fitness, seed = 420)
 
+# SOLUTION FROM GA
+used_amplicons <- as.numeric(ga_result@solution[1,]) #amplicons
+best_solution  <- as.data.frame(cbind(amplicons = unique_amplicons, used_amplicons = used_amplicons))
+best_solution$used_amplicons <- as.numeric(best_solution$used_amplicons)
+
+print(best_solution)
+
+n_amplicons <- sum(best_solution$used_amplicons)
+best_fitness <- max(ga_result@fitness)**-1
+
+print(paste("Optimal # of amplicons =", n_amplicons))
+print(paste("Lowest RMSE =", round(best_fitness, 5)))
+
+# Check if at least one amplicon from each locus of interest was used
+used_amplicons <- best_solution$amplicons[best_solution$used_amplicons == 1]
+loci_used <- sapply(loci_of_interest, function(locus_amplicons) any(locus_amplicons %in% used_amplicons))
+
+if (sum(loci_used) == length(names(loci_used))){
+  print("At least 1 amplicon of all loci of interest was used")
+}else{
+  print(paste("No", names(loci_used[loci_used == FALSE]), "amplicons were used"))
+}
 
 
+## to do: DON'T ALLOW THE ALGO TO GIVE RESULTS IF THERE IS NOT AT LEAST 1 AMPLICON FOR EACH loci_of_interest ##
 
 
+#testing common amplicons between 2 runs:
+
+# used_amplicons2 <- as.numeric(ga_result@solution[1,]) #amplicons
+# best_solution2  <- as.data.frame(cbind(amplicons = unique_amplicons, used_amplicons = used_amplicons2))
+# best_solution2$used_amplicons <- as.numeric(best_solution2$used_amplicons)
+# 
+# print(best_solution2)
+# 
+# n_amplicons <- sum(best_solution2$used_amplicons)
+# best_fitness <- max(ga_result@fitness)**-1
+# 
+# print(paste("Optimal # of amplicons =", n_amplicons))
+# print(paste("Lowest RMSE =", round(best_fitness, 5)))
+# 
 
 
+# best_solution$used_amplicons
+# best_solution2$used_amplicons
 
-
-
-
-
-
-
-
-
-
-
-
+# common<-best_solution[best_solution$used_amplicons + best_solution2$used_amplicons == 2,]
+# sum(common$used_amplicons)
 
 
 
