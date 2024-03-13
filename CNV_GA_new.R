@@ -240,7 +240,6 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
 
 }
 
-
 # Merge resulting dataframes
 for (i in seq_along(results_list)) {
   col_name <- paste0("used_amplicons_", i)
@@ -259,25 +258,25 @@ colnames(merged_GA_result)[-1] <- basename(names(results_list))
 
 #---------------------------- ANALYZE RESULTS ---------------------------
 
-# 1) pca
-
-# Exclude the first column (amplicon names) for PCA
-pca_data <- merged_GA_result[, -1]
-pca_data  <- t(pca_data)
-
-# Perform Principal Component Analysis
-pca_result <- prcomp(pca_data, scale. = TRUE)
-
-# Access the results
-summary(pca_result)
-
-pca_df <- as.data.frame(pca_result$x)
-
-ggplot(pca_df, aes(x = PC1, y = PC2)) +
-  geom_point(size = 4) +
-  labs(title = "PCA of merged_GA_result",
-       x = "Principal Component 1",
-       y = "Principal Component 2")
+# # 1) pca
+# 
+# # Exclude the first column (amplicon names) for PCA
+# pca_data <- merged_GA_result[, -1]
+# pca_data  <- t(pca_data)
+# 
+# # Perform Principal Component Analysis
+# pca_result <- prcomp(pca_data, scale. = TRUE)
+# 
+# # Access the results
+# summary(pca_result)
+# 
+# pca_df <- as.data.frame(pca_result$x)
+# 
+# ggplot(pca_df, aes(x = PC1, y = PC2)) +
+#   geom_point(size = 4) +
+#   labs(title = "PCA of merged_GA_result",
+#        x = "Principal Component 1",
+#        y = "Principal Component 2")
 
 
 
@@ -298,12 +297,73 @@ amplicon_results <- amplicon_results[order(-amplicon_results$percentage_used), ]
 # Create a sorted barplot using ggplot2
 ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percentage_used, fill = loci)) +
   geom_bar(stat = "identity") +
-  labs(title = "Percentage of Amplicons Used by GA",
-       x = "Amplicon",
-       y = "Percentage Used") +
+  labs(title = "Amplicons Used by GA for optimal Fold Change Calculation on Controls",
+       x = "Amplicons",
+       y = "Percentage of Controls") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
   # Add orange color to bars corresponding to amplicons in all_loci_amplicons
   scale_fill_manual(values = c("red", "blue", "green", "purple", "yellow", "pink", "orange", "black"))
+
+
+#
+library(reshape2)
+library(dplyr)
+library(tidyr)
+
+melted_merged_GA_result <- melt(merged_GA_result)
+
+melted_merged_GA_result <- separate(melted_merged_GA_result, variable, into = c("run", "control"), sep = "___")
+
+# Get unique variables from melted_merged_GA_result
+unique_variables <- length(unique(melted_merged_GA_result$control))
+
+# Generate random colors
+set.seed(69)
+random_colors <- sample(colors(), unique_variables)
+
+# Plot using the random colors
+ggplot(melted_merged_GA_result, aes(x = reorder(amplicon, -value), y = value, fill = control )) +
+  geom_bar(stat = "identity") +
+  labs(title = "",
+       x = "Amplicons",
+       y = "Controls") +
+  scale_fill_manual(values = random_colors) +  # Set the random colors
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
+  guides(fill = guide_legend(ncol = 1))
+
+
+
+
+amps_used <- melted_merged_GA_result %>% 
+  group_by(variable) %>%
+  summarize(amps_used = sum(value))
+
+amps_used <- separate(amps_used, variable, into = c("run", "control"), sep = "___")
+
+ggplot(amps_used, aes(x = reorder(control, -amps_used), y = amps_used, fill = run )) +
+  geom_bar(stat = "identity")+
+  labs(title = "",
+       x = "Control strain",
+       y = "Number of Amplicons Used") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5))+
+  guides(fill = guide_legend(ncol = 1))
+
+
+
+### CROSS VALIDATION
+
+# 1) choose a fraction of amplicons from the barplot wihch includes at least 1 of each amplicon of interest
+# 2) use that fraction to calculate fold change in all controls with known genotype
+# 3) evaluate agains using all amplicons. is it better?
+
+
+
+#TO DO:
+# 1) keep best amplicon for each loci and try running with everything else
+# 2) remove half of the other amplicons and keep the best one of each loci?
+# 3) maybe rerun genetic algo but ALWAYS keeping the best performing amplicon for each loci?
+
+
 
 
 #testing common amplicons between 2 runs:
