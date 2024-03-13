@@ -258,34 +258,46 @@ colnames(merged_GA_result)[-1] <- basename(names(results_list))
 
 #---------------------------- ANALYZE RESULTS ---------------------------
 
-# # 1) pca
-# 
-# # Exclude the first column (amplicon names) for PCA
-# pca_data <- merged_GA_result[, -1]
-# pca_data  <- t(pca_data)
-# 
-# # Perform Principal Component Analysis
-# pca_result <- prcomp(pca_data, scale. = TRUE)
-# 
-# # Access the results
-# summary(pca_result)
-# 
-# pca_df <- as.data.frame(pca_result$x)
-# 
-# ggplot(pca_df, aes(x = PC1, y = PC2)) +
-#   geom_point(size = 4) +
-#   labs(title = "PCA of merged_GA_result",
-#        x = "Principal Component 1",
-#        y = "Principal Component 2")
-
-
-
-# 2) barplot of percentage of controls that used each amplicon
-
 #percentage of controls that used each amplicon
 amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
 amplicon_results$percentage_used <- rowSums(merged_GA_result[, -1])/ length(merged_GA_result[, -1])
 amplicon_results$loci <- NA  # Initialize the column with NAs
+
+# 1) pca and tsne
+# Exclude the first column (amplicon names) for PCA
+pca_data <- merged_GA_result[, -1]
+#pca_data  <- t(pca_data)
+
+# Perform Principal Component Analysis
+pca_result <- prcomp(pca_data, scale. = TRUE)
+
+# Access the results
+summary(pca_result)
+
+pca_df <- as.data.frame(pca_result$x)
+
+ggplot(pca_df, aes(x = PC1, y = PC2)) +
+  geom_point(size = 4) +
+  labs(title = "PCA of merged_GA_result",
+       x = "Principal Component 1",
+       y = "Principal Component 2")
+
+library(Rtsne)
+
+perplexity <- floor((nrow(merged_GA_result[, -1]) - 1) / 3) #highest possible, if needed
+tsne_result <- Rtsne(as.matrix(merged_GA_result[, -1]), dims = 2, verbose = TRUE, check_duplicates = FALSE, pca_center = F, max_iter = 2e4, num_threads = 0, perplexity = perplexity)
+
+tsne_coordinates <- as.data.frame(tsne_result$Y)
+
+ggplot(tsne_coordinates, aes(V1, V2)) +
+  geom_point(size = 4, alpha = 0.5, color = "red") + # COLOR BY PERCENTAGE USED!!!
+  labs(title = "In-Sample Allele Frequencies",
+       x = "t-SNE 1", y = "t-SNE 2") +
+  theme_minimal()+
+  guides(fill = FALSE, shape = FALSE)
+
+
+# 2) barplot of percentage of controls that used each amplicon
 
 for (f in 1:length(loci_of_interest)) {
   matching_amplicons <- amplicon_results$amplicon %in% loci_of_interest[[f]]
