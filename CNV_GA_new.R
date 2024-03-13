@@ -261,7 +261,15 @@ colnames(merged_GA_result)[-1] <- basename(names(results_list))
 #percentage of controls that used each amplicon
 amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
 amplicon_results$percentage_used <- rowSums(merged_GA_result[, -1])/ length(merged_GA_result[, -1])
+
 amplicon_results$loci <- NA  # Initialize the column with NAs
+
+for (f in 1:length(loci_of_interest)) {
+  matching_amplicons <- amplicon_results$amplicon %in% loci_of_interest[[f]]
+  amplicon_results$loci[matching_amplicons] <- names(loci_of_interest)[f]
+}
+
+amplicon_results <- amplicon_results[order(-amplicon_results$percentage_used), ]
 
 # 1) pca and tsne
 # Exclude the first column (amplicon names) for PCA
@@ -288,23 +296,18 @@ perplexity <- floor((nrow(merged_GA_result[, -1]) - 1) / 3) #highest possible, i
 tsne_result <- Rtsne(as.matrix(merged_GA_result[, -1]), dims = 2, verbose = TRUE, check_duplicates = FALSE, pca_center = F, max_iter = 2e4, num_threads = 0, perplexity = perplexity)
 
 tsne_coordinates <- as.data.frame(tsne_result$Y)
+tsne_coordinates$loci <- amplicon_results$loci
+tsne_coordinates$percentage_used <- amplicon_results$percentage_used
 
-ggplot(tsne_coordinates, aes(V1, V2)) +
-  geom_point(size = 4, alpha = 0.5, color = "red") + # COLOR BY PERCENTAGE USED!!!
-  labs(title = "In-Sample Allele Frequencies",
+ggplot(tsne_coordinates, aes(V1, V2, fill = percentage_used)) +
+  geom_point(size = 4, alpha = 0.7, shape = 21) +  # Use shape 21 for filled circles
+  labs(title = "",
        x = "t-SNE 1", y = "t-SNE 2") +
-  theme_minimal()+
-  guides(fill = FALSE, shape = FALSE)
-
+  scale_fill_gradient(low = "black", high = "cyan") + 
+  theme_minimal() +
+  guides(fill = guide_legend(title = "Percentage Used")) 
 
 # 2) barplot of percentage of controls that used each amplicon
-
-for (f in 1:length(loci_of_interest)) {
-  matching_amplicons <- amplicon_results$amplicon %in% loci_of_interest[[f]]
-  amplicon_results$loci[matching_amplicons] <- names(loci_of_interest)[f]
-}
-
-amplicon_results <- amplicon_results[order(-amplicon_results$percentage_used), ]
 
 # Create a sorted barplot using ggplot2
 ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percentage_used, fill = loci)) +
