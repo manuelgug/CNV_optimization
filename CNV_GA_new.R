@@ -366,36 +366,101 @@ ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA), fill = perc
   scale_color_manual(values = setNames(color_data$color, color_data$loci), na.value = "white") +
   theme_minimal()
 
+
+OPTIMIZED_SET_OF_AMPLICONS <- pca_df[pca_df$cluster_3 == 1,]$amplicon
+
+print(paste0("OPTIMIZED_SET_OF_AMPLICONS = ", length(OPTIMIZED_SET_OF_AMPLICONS)))
+
 #RESULTS:
 # Amplicons used in more controls are also grouped together more often, so there's such thing as good/bad amplicons for CNV calculation
 # Cluster 1 of k = 3 includes the most used amplicons, and also includes at least 1 amplicon of each locus of interest; k = 2 is too broad and k = 4 doesn't include all loci of interest in the high abundance cluster
 # Cluster 1 of K = 3 it's a good candidate as an optimized generalizable amplicon set for CNV estimation
 
 
-for (i in seq_along(expected_foldchanges_filepaths)) {
+### BENCHMARKING OPTIMIZED AMPLICON SET: CROSS VALIDATION
+
+# 1) format inputs for estCNV
+
+amp_cov_inputs <- unique(expected_foldchanges_filepaths)
+
+estcnv_inputs <- list()
+
+for (i in seq_along(amp_cov_inputs)) {
   # Read amplicon_coverage file
-  filepath <- expected_foldchanges_filepaths[i]
+  filepath <- amp_cov_inputs[i]
   filename <- basename(filepath)
   
   sample_name_ <- expected_foldchanges$control_name[i]
-  iteration_name <- paste0(filepath, "___", sample_name_)
-  
-  #this is the amplicon table that will be referenced by the GA. 1 = used, 0 = left out
-  #amp_table <- data.frame(amplicons = unique(amplicon_coverage_formatted$Locus), used = 1)
-  unique_amplicons <- unique(amplicon_coverage_formatted$Locus)
-  
-  
-  # Check if the file is already processed
-  if (iteration_name %in% names(results_list)) {
-    cat(paste("\nSkipping control:", iteration_name, "as it's already processed\n"))
-    next  # Skip to the next iteration
-  }
+  #iteration_name <- paste0(filepath, "___", sample_name_)
   
   amplicon_coverage <- read.table(filepath, header = TRUE)
   
   # Format input for estCNV
   amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_coverage, loci_of_interest = loci_of_interest)
+  
+  estcnv_inputs[[filepath]] <- amplicon_coverage_formatted
 }
+
+str(estcnv_inputs)
+
+# 2) get optimized inputs for estCNV
+subset_by_locus <- function(df) {
+  df_subset <- subset(df, Locus %in% OPTIMIZED_SET_OF_AMPLICONS)
+  return(df_subset)
+}
+
+estcnv_inputs_OPTIMIZED <- lapply(estcnv_inputs, subset_by_locus)
+
+str(estcnv_inputs_OPTIMIZED)
+
+
+# 3) function tu run estCNV on input lists
+
+run_estCNV <- function(INPUT_LIST) {
+  RESULTS_LIST <- list()  # Initialize empty list to store results
+  
+  # Loop through each element in INPUT_LIST
+  for (i in seq_along(INPUT_LIST)) {
+    amplicon_coverage_formatted <- INPUT_LIST[[i]]  # Get dataframe
+    
+    # Initialize FOLDCHANGE dataframe
+    FOLDCHANGE <- data.frame(rep(NA, 8))
+    
+    # Loop through unique SampleIDs
+    for (name in unique(amplicon_coverage_formatted$SampleID)) {
+      tryCatch({
+        result <- estCNV(amplicon_coverage_formatted[amplicon_coverage_formatted$SampleID == name, ], plot.gam = FALSE, sample.name = name)
+        tmp_df <- do.call(cbind.data.frame, result[1]) 
+        colnames(tmp_df) <- name
+        FOLDCHANGE <- cbind(FOLDCHANGE, tmp_df)
+      }, error = function(e) {
+        # Handle errors if necessary
+        message("Error: ", e$message)
+      })
+    }
+    
+    # Process FOLDCHANGE_final
+    FOLDCHANGE_final <- FOLDCHANGE[, -1]
+    FOLDCHANGE_final <- t(FOLDCHANGE_final)
+    FOLDCHANGE_final <- as.data.frame(FOLDCHANGE_final)
+    
+    # Append FOLDCHANGE_final to RESULTS_LIST list
+    RESULTS_LIST[[i]] <- FOLDCHANGE_final
+  }
+  
+  return(RESULTS_LIST)
+}
+
+
+# 4) run estCNV with all amplicons (estcnv_inputs)
+estcsv_inputs_RESULTS <- run_estCNV(estcnv_inputs)
+
+# 5) run estCNV with OPTIMIZED_SET_OF_AMPLICONS (estcnv_inputs_OPTIMIZED)
+estcsv_inputs_RESULTS_OPTIMIZED <- run_estCNV(estcnv_inputs_OPTIMIZED)
+
+
+estcsv_inputs_RESULTS__OPTIMIZED[[1]]
+
 
 
 ### CROSS VALIDATION OF SUBSET OF AMPLICONS
