@@ -435,7 +435,7 @@ run_estCNV <- function(INPUT_LIST) {
         FOLDCHANGE <- cbind(FOLDCHANGE, tmp_df)
       }, error = function(e) {
         # Handle errors if necessary
-        message("Error: ", e$message)
+        #message("Error: ", e$message)
       })
     }
     
@@ -455,11 +455,12 @@ run_estCNV <- function(INPUT_LIST) {
 # 4) run estCNV with all amplicons (estcnv_inputs)
 estcsv_inputs_RESULTS <- run_estCNV(estcnv_inputs)
 
+estcsv_inputs_RESULTS[[3]]
+
 # 5) run estCNV with OPTIMIZED_SET_OF_AMPLICONS (estcnv_inputs_OPTIMIZED)
 estcsv_inputs_RESULTS_OPTIMIZED <- run_estCNV(estcnv_inputs_OPTIMIZED)
 
-
-estcsv_inputs_RESULTS__OPTIMIZED[[1]]
+estcsv_inputs_RESULTS_OPTIMIZED[[3]]
 
 
 
