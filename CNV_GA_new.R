@@ -7,6 +7,7 @@ library(dplyr)
 library(tidyr)
 library(Rtsne)
 library(corrplot)
+library(factoextra)
 
 #-------------------INPUT loci of interest for reference ----------------------
 
@@ -299,7 +300,7 @@ ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percen
        y = "Percentage of Controls") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
   # Add orange color to bars corresponding to amplicons in all_loci_amplicons
-  scale_fill_manual(values = c("red", "blue", "green", "purple", "yellow", "pink", "orange", "black"))
+  scale_fill_manual(values = c("red", "green", "blue", "orange", "purple", "yellow", "black", "violet"))
 
 #are the runs of the controls a factor that influences the use of amplicons by the GA?
 
@@ -315,60 +316,67 @@ ggplot(amps_used, aes(x = reorder(control, -amps_used), y = amps_used, fill = ru
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5))+
   guides(fill = guide_legend(ncol = 1))
 
-set.seed(69)
-random_colors <- sample(colors(), unique_variables)
-
-ggplot(melted_merged_GA_result, aes(x = reorder(amplicon, -value), y = value, fill = control )) +
-  geom_bar(stat = "identity") +
-  labs(title = "",
-       x = "Amplicons",
-       y = "Controls") +
-  scale_fill_manual(values = random_colors) +  # Set the random colors
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
-  guides(fill = guide_legend(ncol = 1))
-
-
-
 
 #### DO AMPLICONS CO-OCURR IN MOST OPTIMAL SOLUTIONS? (aka are there "GOOD" and "BAD" amplicons?)
+
+color_data <- data.frame(
+  loci = sort(na.omit(unique(amplicon_results$loci))),
+  color = c("red", "green", "blue", "orange", "purple", "yellow", "black", "violet")
+)
+
 
 # 1) pca 
 pca_data <- merged_GA_result[, -1]
 
 pca_result <- prcomp(pca_data, scale. = TRUE)
 
-pca_df <- as.data.frame(pca_result$x)
-pca_df$percentage_used <- amplicon_results$percentage_used
+pca_df <- as.data.frame(cbind(pca_result$x, amplicon_results))
+pca_df <- merge(pca_df, color_data, by = "loci", all.x = TRUE)
 
-ggplot(pca_df, aes(PC1, PC2, fill = percentage_used)) +
-  geom_point(size = 4, alpha = 0.7, shape = 21) +
+ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA),  fill = percentage_used, )) +
+  geom_point(size = 6, alpha = ifelse(!is.na(pca_df$loci), 1, 0.4), shape = 21, stroke = 1.5) +
   labs(title = "PCA of merged_GA_result",
        x = "Principal Component 1",
-       y = "Principal Component 2")+
-  scale_fill_gradient(low = "black", high = "cyan") + 
-  theme_minimal() 
+       y = "Principal Component 2") +
+  scale_fill_gradient(low = "black", high = "cyan") +
+  scale_color_manual(values = setNames(color_data$color, color_data$loci), na.value = "white") +
+  theme_minimal()
+  
 
-# 2) tsne
-perplexity <- floor((nrow(merged_GA_result[, -1]) - 1) / 3) #highest possible, if needed
-set.seed(420)
-tsne_result <- Rtsne(as.matrix(merged_GA_result[, -1]), dims = 2, verbose = TRUE, check_duplicates = FALSE, pca_center = F, max_iter = 1e4, num_threads = 0, perplexity = perplexity)
+# 2) kmeans
 
-tsne_coordinates <- as.data.frame(tsne_result$Y)
-tsne_coordinates$loci <- amplicon_results$loci
-tsne_coordinates$percentage_used <- amplicon_results$percentage_used
+optimal_k <- 2:5
+plot_list <- list()
+clusters <- data.frame(matrix(nrow = dim(merged_GA_result)[1], ncol = 0)) 
 
-ggplot(tsne_coordinates, aes(V1, V2, fill = percentage_used, shape = loci)) +
-  geom_point(size = 4, alpha = 0.7, shape = 21) + 
-  labs(title = "",
-       x = "t-SNE 1", y = "t-SNE 2") +
-  scale_fill_gradient(low = "black", high = "cyan") + 
-  theme_minimal() +
-  guides(fill = guide_legend(title = "Percentage Used")) 
+# Perform k-means clustering and plot for each optimal k
+for (k in optimal_k) {
+  # Perform k-means clustering with the optimal k
+  set.seed(69)
+  kmeans_result <- kmeans(merged_GA_result[, -1], centers = k, nstart = 10000, iter.max = 10000)
+  
+  # Add cluster assignment as a new column to clusters
+  clusters[[paste0("cluster_", k)]] <- kmeans_result$cluster
+  
+}
 
-## 3) corrplot
-#rownames(merged_GA_result) <- merged_GA_result[, 1]
-correlation_matrix <- cor(t(merged_GA_result[, -1]))
-corrplot(correlation_matrix, order = "hclust", addrect = 24)
+clusters$amplicon <- merged_GA_result$amplicon
+pca_df <- merge(pca_df, clusters, by =c("amplicon"))
+
+# pca w/ clusters
+ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA), fill = percentage_used, shape = factor(cluster_3))) +
+  geom_point(size = 6, alpha = ifelse(!is.na(pca_df$loci), 1, 0.4), stroke = 1.5) +
+  labs(title = "PCA of merged_GA_result",
+       x = "Principal Component 1",
+       y = "Principal Component 2") +
+  scale_fill_gradient(low = "black", high = "cyan") +
+  scale_shape_manual(values = c(21, 22, 23)) +  # Specify shapes 21 to 23
+  scale_color_manual(values = setNames(color_data$color, color_data$loci), na.value = "white") +
+  theme_minimal()
+
+#RESULTS:
+# Amplicons used in more controls are also grouped together more often, so there's such thing as good/bad amplicons for CNV calculation
+# Cluster 1 of k = 3 includes the most used amplicons, and also includes at least 1 amplicon of each locus of interest, so it's a good candidate as an optimized generalizable amplicon set for CNV estimation
 
 
 
