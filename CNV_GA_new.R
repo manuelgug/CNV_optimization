@@ -106,6 +106,7 @@ estCNV <- function(data, sample.name="<sample>", plot.gam=F, verbose=F, k.gam=4,
 
 
 ### ---------------EXPECTED FOLD CHANGE FOR EACH CONTROL SAMPLE FROM THE DATASET --------------------
+
 expected_foldchanges <- read.csv("expected_foldchanges.csv")
 
 expected_foldchanges_filepaths <-  paste0("CNV_runs_sample_coverage/", expected_foldchanges$filename)
@@ -128,6 +129,11 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   sample_name_ <- expected_foldchanges$control_name[i]
   iteration_name <- paste0(filepath, "___", sample_name_)
   
+  amplicon_coverage <- read.table(filepath, header = TRUE)
+  
+  # Format input for estCNV
+  amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_coverage, loci_of_interest = loci_of_interest)
+  
   #this is the amplicon table that will be referenced by the GA. 1 = used, 0 = left out
   #amp_table <- data.frame(amplicons = unique(amplicon_coverage_formatted$Locus), used = 1)
   unique_amplicons <- unique(amplicon_coverage_formatted$Locus)
@@ -138,11 +144,7 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
     cat(paste("\nSkipping control:", iteration_name, "as it's already processed\n"))
     next  # Skip to the next iteration
   }
-  
-  amplicon_coverage <- read.table(filepath, header = TRUE)
-  
-  # Format input for estCNV
-  amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_coverage, loci_of_interest = loci_of_interest)
+
   
   #---------------------------FOLD CHANGE ESTIMATION--------------------------------
   
@@ -318,7 +320,7 @@ ggplot(amps_used, aes(x = reorder(control, -amps_used), y = amps_used, fill = ru
   guides(fill = guide_legend(ncol = 1))
 
 
-#### DO AMPLICONS CO-OCURR IN MOST OPTIMAL SOLUTIONS? (aka are there "GOOD" and "BAD" amplicons?)
+#### DO AMPLICONS CO-OCURR IN MOST OPTIMAL SOLUTIONS? (aka are there "GOOD" and "BAD" amplicons?). IS THERE A GENERALIZABLE SET OF AMPLICONS FOR CNV CALCULATION?
 
 # 1) kmeans
 optimal_k <- 2:5
@@ -369,6 +371,31 @@ ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA), fill = perc
 # Cluster 1 of k = 3 includes the most used amplicons, and also includes at least 1 amplicon of each locus of interest; k = 2 is too broad and k = 4 doesn't include all loci of interest in the high abundance cluster
 # Cluster 1 of K = 3 it's a good candidate as an optimized generalizable amplicon set for CNV estimation
 
+
+for (i in seq_along(expected_foldchanges_filepaths)) {
+  # Read amplicon_coverage file
+  filepath <- expected_foldchanges_filepaths[i]
+  filename <- basename(filepath)
+  
+  sample_name_ <- expected_foldchanges$control_name[i]
+  iteration_name <- paste0(filepath, "___", sample_name_)
+  
+  #this is the amplicon table that will be referenced by the GA. 1 = used, 0 = left out
+  #amp_table <- data.frame(amplicons = unique(amplicon_coverage_formatted$Locus), used = 1)
+  unique_amplicons <- unique(amplicon_coverage_formatted$Locus)
+  
+  
+  # Check if the file is already processed
+  if (iteration_name %in% names(results_list)) {
+    cat(paste("\nSkipping control:", iteration_name, "as it's already processed\n"))
+    next  # Skip to the next iteration
+  }
+  
+  amplicon_coverage <- read.table(filepath, header = TRUE)
+  
+  # Format input for estCNV
+  amplicon_coverage_formatted <- formating_ampCov(amplicon_coverage = amplicon_coverage, loci_of_interest = loci_of_interest)
+}
 
 
 ### CROSS VALIDATION OF SUBSET OF AMPLICONS
