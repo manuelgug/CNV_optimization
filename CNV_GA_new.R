@@ -262,6 +262,8 @@ colnames(merged_GA_result)[-1] <- basename(names(results_list))
 #checkpoint
 #write.csv(merged_GA_result, "merged_GA_result.csv") ################################
 
+
+
 #---------------------------- ANALYZE RESULTS ---------------------------
 
 ##################inputs##################
@@ -269,10 +271,9 @@ merged_GA_result <- read.csv("merged_GA_result.csv", row.names = 1)
 loci_of_interest <- readRDS("loci_of_interest.RDS")
 ##########################################
 
-## data formating
+## data formatting
 
 #percentage of controls that used each amplicon
-
 amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
 amplicon_results$percentage_used <- rowSums(merged_GA_result[, -1])/ length(merged_GA_result[, -1])
 
@@ -319,32 +320,7 @@ ggplot(amps_used, aes(x = reorder(control, -amps_used), y = amps_used, fill = ru
 
 #### DO AMPLICONS CO-OCURR IN MOST OPTIMAL SOLUTIONS? (aka are there "GOOD" and "BAD" amplicons?)
 
-color_data <- data.frame(
-  loci = sort(na.omit(unique(amplicon_results$loci))),
-  color = c("red", "green", "blue", "orange", "purple", "yellow", "black", "violet")
-)
-
-
-# 1) pca 
-pca_data <- merged_GA_result[, -1]
-
-pca_result <- prcomp(pca_data, scale. = TRUE)
-
-pca_df <- as.data.frame(cbind(pca_result$x, amplicon_results))
-pca_df <- merge(pca_df, color_data, by = "loci", all.x = TRUE)
-
-ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA),  fill = percentage_used, )) +
-  geom_point(size = 6, alpha = ifelse(!is.na(pca_df$loci), 1, 0.4), shape = 21, stroke = 1.5) +
-  labs(title = "PCA of merged_GA_result",
-       x = "Principal Component 1",
-       y = "Principal Component 2") +
-  scale_fill_gradient(low = "black", high = "cyan") +
-  scale_color_manual(values = setNames(color_data$color, color_data$loci), na.value = "white") +
-  theme_minimal()
-  
-
-# 2) kmeans
-
+# 1) kmeans
 optimal_k <- 2:5
 plot_list <- list()
 clusters <- data.frame(matrix(nrow = dim(merged_GA_result)[1], ncol = 0)) 
@@ -360,15 +336,29 @@ for (k in optimal_k) {
   
 }
 
+# 2) pca
+color_data <- data.frame(
+  loci = sort(na.omit(unique(amplicon_results$loci))),
+  color = c("red", "green", "blue", "orange", "purple", "yellow", "black", "violet")
+)
+
+pca_data <- merged_GA_result[, -1]
+
+pca_result <- prcomp(pca_data, scale. = TRUE)
+
+#add metadata
+pca_df <- as.data.frame(cbind(pca_result$x, amplicon_results))
+pca_df <- merge(pca_df, color_data, by = "loci", all.x = TRUE)
 clusters$amplicon <- merged_GA_result$amplicon
 pca_df <- merge(pca_df, clusters, by =c("amplicon"))
 
-# pca w/ clusters
+variance_explained <- summary(pca_result)$importance["Proportion of Variance", ]
+
 ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA), fill = percentage_used, shape = factor(cluster_3))) +
   geom_point(size = 6, alpha = ifelse(!is.na(pca_df$loci), 1, 0.4), stroke = 1.5) +
-  labs(title = "PCA of merged_GA_result",
-       x = "Principal Component 1",
-       y = "Principal Component 2") +
+  labs(title = "PCA of co-occurrence of amplicons in GA solutions + Clustering",
+       x = paste("PC1 (", round(variance_explained[1] * 100, 2), "%)", sep = ""),
+       y = paste("PC2 (", round(variance_explained[2] * 100, 2), "%)", sep = "")) +
   scale_fill_gradient(low = "black", high = "cyan") +
   scale_shape_manual(values = c(21, 22, 23)) +  # Specify shapes 21 to 23
   scale_color_manual(values = setNames(color_data$color, color_data$loci), na.value = "white") +
@@ -376,21 +366,17 @@ ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA), fill = perc
 
 #RESULTS:
 # Amplicons used in more controls are also grouped together more often, so there's such thing as good/bad amplicons for CNV calculation
-# Cluster 1 of k = 3 includes the most used amplicons, and also includes at least 1 amplicon of each locus of interest, so it's a good candidate as an optimized generalizable amplicon set for CNV estimation
+# Cluster 1 of k = 3 includes the most used amplicons, and also includes at least 1 amplicon of each locus of interest; k = 2 is too broad and k = 4 doesn't include all loci of interest in the high abundance cluster
+# Cluster 1 of K = 3 it's a good candidate as an optimized generalizable amplicon set for CNV estimation
 
 
 
-### CROSS VALIDATION
+### CROSS VALIDATION OF SUBSET OF AMPLICONS
 
-# 1) choose a fraction of amplicons from the barplot wihch includes at least 1 of each amplicon of interest
-# 2) use that fraction to calculate fold change in all controls with known genotype
+# 0) develop a way of benchmarking results of estCNV against expected results ( is it on fitness function already? i think so )
+# 1) subset amplicons of cluster 1 of k = 3
+# 2) use subset to calculate fold change in all controls with known genotype
 # 3) evaluate agains using all amplicons. is it better?
-
-#TO DO:
-# 1) keep best amplicon for each loci and try running with everything else
-# 2) remove half of the other amplicons and keep the best one of each loci?
-# 3) maybe rerun genetic algo but ALWAYS keeping the best performing amplicon for each loci?
-
 
 
 
