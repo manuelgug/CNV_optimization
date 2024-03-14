@@ -268,7 +268,10 @@ merged_GA_result <- read.csv("merged_GA_result.csv", row.names = 1)
 loci_of_interest <- readRDS("loci_of_interest.RDS")
 ##########################################
 
+## data formating
+
 #percentage of controls that used each amplicon
+
 amplicon_results <- data.frame(amplicon = merged_GA_result$amplicon)
 amplicon_results$percentage_used <- rowSums(merged_GA_result[, -1])/ length(merged_GA_result[, -1])
 
@@ -279,15 +282,16 @@ for (f in 1:length(loci_of_interest)) {
   amplicon_results$loci[matching_amplicons] <- names(loci_of_interest)[f]
 }
 
-
-##### exploration
 melted_merged_GA_result <- melt(merged_GA_result)
 melted_merged_GA_result <- separate(melted_merged_GA_result, variable, into = c("run", "control"), sep = "___")
 
-# Get unique variables from melted_merged_GA_result
 unique_variables <- length(unique(melted_merged_GA_result$control))
 
-# 2) barplot of percentage of controls that used each amplicon
+
+##### exploration
+
+# percentage of controls that used each amplicon in their optimal solution, also check for the loci of interest
+
 ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percentage_used, fill = loci)) +
   geom_bar(stat = "identity") +
   labs(title = "Amplicons Used by GA for optimal Fold Change Calculation on Controls",
@@ -297,20 +301,7 @@ ggplot(amplicon_results, aes(x = reorder(amplicon, -percentage_used), y = percen
   # Add orange color to bars corresponding to amplicons in all_loci_amplicons
   scale_fill_manual(values = c("red", "blue", "green", "purple", "yellow", "pink", "orange", "black"))
 
-# Generate random colors
-set.seed(69)
-random_colors <- sample(colors(), unique_variables)
-
-# Plot using the random colors
-ggplot(melted_merged_GA_result, aes(x = reorder(amplicon, -value), y = value, fill = control )) +
-  geom_bar(stat = "identity") +
-  labs(title = "",
-       x = "Amplicons",
-       y = "Controls") +
-  scale_fill_manual(values = random_colors) +  # Set the random colors
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
-  guides(fill = guide_legend(ncol = 1))
-
+#are the runs of the controls a factor that influences the use of amplicons by the GA?
 
 amps_used <- melted_merged_GA_result %>% 
   group_by(run,control) %>%
@@ -324,14 +315,26 @@ ggplot(amps_used, aes(x = reorder(control, -amps_used), y = amps_used, fill = ru
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5))+
   guides(fill = guide_legend(ncol = 1))
 
+set.seed(69)
+random_colors <- sample(colors(), unique_variables)
+
+ggplot(melted_merged_GA_result, aes(x = reorder(amplicon, -value), y = value, fill = control )) +
+  geom_bar(stat = "identity") +
+  labs(title = "",
+       x = "Amplicons",
+       y = "Controls") +
+  scale_fill_manual(values = random_colors) +  # Set the random colors
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6.5)) +
+  guides(fill = guide_legend(ncol = 1))
 
 
-#### DO AMPLICONS CO-OCURR IN MOST OPTIMAL SOLUTIONS?
+
+
+#### DO AMPLICONS CO-OCURR IN MOST OPTIMAL SOLUTIONS? (aka are there "GOOD" and "BAD" amplicons?)
 
 # 1) pca 
 pca_data <- merged_GA_result[, -1]
 
-# Perform Principal Component Analysis
 pca_result <- prcomp(pca_data, scale. = TRUE)
 
 pca_df <- as.data.frame(pca_result$x)
@@ -344,7 +347,6 @@ ggplot(pca_df, aes(PC1, PC2, fill = percentage_used)) +
        y = "Principal Component 2")+
   scale_fill_gradient(low = "black", high = "cyan") + 
   theme_minimal() 
-
 
 # 2) tsne
 perplexity <- floor((nrow(merged_GA_result[, -1]) - 1) / 3) #highest possible, if needed
@@ -366,7 +368,7 @@ ggplot(tsne_coordinates, aes(V1, V2, fill = percentage_used, shape = loci)) +
 ## 3) corrplot
 #rownames(merged_GA_result) <- merged_GA_result[, 1]
 correlation_matrix <- cor(t(merged_GA_result[, -1]))
-corrplot(correlation_matrix, order = "hclust", addrect = 12)
+corrplot(correlation_matrix, order = "hclust", addrect = 24)
 
 
 
@@ -375,8 +377,6 @@ corrplot(correlation_matrix, order = "hclust", addrect = 12)
 # 1) choose a fraction of amplicons from the barplot wihch includes at least 1 of each amplicon of interest
 # 2) use that fraction to calculate fold change in all controls with known genotype
 # 3) evaluate agains using all amplicons. is it better?
-
-
 
 #TO DO:
 # 1) keep best amplicon for each loci and try running with everything else
