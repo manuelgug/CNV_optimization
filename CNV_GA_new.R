@@ -415,13 +415,13 @@ str(estcnv_inputs_OPTIMIZED)
 
 
 # 3) function tu run estCNV on input lists
-
 run_estCNV <- function(INPUT_LIST) {
   RESULTS_LIST <- list()  # Initialize empty list to store results
+  FOLDCHANGE <- data.frame(rep(NA, 8))  # Initialize FOLDCHANGE dataframe outside the loop
   
   # Loop through each element in INPUT_LIST
-  for (i in seq_along(INPUT_LIST)) {
-    amplicon_coverage_formatted <- INPUT_LIST[[i]]  # Get dataframe
+  for (j in seq_along(INPUT_LIST)) {
+    amplicon_coverage_formatted <- INPUT_LIST[[j]]  # Get dataframe
     
     # Initialize FOLDCHANGE dataframe
     FOLDCHANGE <- data.frame(rep(NA, 8))
@@ -444,8 +444,34 @@ run_estCNV <- function(INPUT_LIST) {
     FOLDCHANGE_final <- t(FOLDCHANGE_final)
     FOLDCHANGE_final <- as.data.frame(FOLDCHANGE_final)
     
+    
+    ##########################  NORMALIZE WITH SINGLE COPY CONTROLS ###########################
+    
+    controls <- FOLDCHANGE_final[!grepl("(?i)Dd2|PM|HB3", rownames(FOLDCHANGE_final)) & grepl("(?i)3D7", rownames(FOLDCHANGE_final)), ]
+    control_means <- colMeans(controls) #MEAN FOLD CHANGE OF CONTROLS
+    
+    #Round everything belos 0.001 to 0 both in control means and samples fold change to avoid erroneous normalization 
+    control_means[control_means < 0.001] <- 0
+    control_means[control_means == 1] <- 0 
+    
+    # create an empty data frame for normalized data
+    FOLDCHANGE_final_NORMALIZED <- data.frame(matrix(0, nrow = nrow(FOLDCHANGE_final), ncol = ncol(FOLDCHANGE_final)))
+    colnames(FOLDCHANGE_final_NORMALIZED) <- colnames(FOLDCHANGE_final)
+    
+    # normalize FOLDCHANGE_final by control_means
+    for (i in 1:ncol(FOLDCHANGE_final)) {
+      FOLDCHANGE_final_NORMALIZED[, i] <- FOLDCHANGE_final[, i] / control_means[i]
+    }
+    
+    #Change Inf values to 0. Infs appear as a result of 0/0 division during normalization
+    FOLDCHANGE_final_NORMALIZED[FOLDCHANGE_final_NORMALIZED == Inf] <- 0
+    
+    rownames(FOLDCHANGE_final_NORMALIZED) <- rownames(FOLDCHANGE_final)
+    
+    ########################################################################################### 
+    
     # Append FOLDCHANGE_final to RESULTS_LIST list
-    RESULTS_LIST[[i]] <- FOLDCHANGE_final
+    RESULTS_LIST[[j]] <- FOLDCHANGE_final_NORMALIZED
   }
   
   return(RESULTS_LIST)
@@ -455,12 +481,13 @@ run_estCNV <- function(INPUT_LIST) {
 # 4) run estCNV with all amplicons (estcnv_inputs)
 estcsv_inputs_RESULTS <- run_estCNV(estcnv_inputs)
 
-estcsv_inputs_RESULTS[[3]]
+lapply(estcsv_inputs_RESULTS[[3]], median)
+
 
 # 5) run estCNV with OPTIMIZED_SET_OF_AMPLICONS (estcnv_inputs_OPTIMIZED)
 estcsv_inputs_RESULTS_OPTIMIZED <- run_estCNV(estcnv_inputs_OPTIMIZED)
 
-estcsv_inputs_RESULTS_OPTIMIZED[[3]]
+lapply(estcsv_inputs_RESULTS_OPTIMIZED[[3]], median)
 
 
 
