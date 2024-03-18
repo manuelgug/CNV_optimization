@@ -326,7 +326,7 @@ write.csv(merged_GA_result, "merged_GA_result_NORMALIZED.csv") #################
 #---------------------------- ANALYZE RESULTS ---------------------------
 
 ##################inputs##################
-merged_GA_result <- read.csv("merged_GA_result.csv", row.names = 1) 
+merged_GA_result <- read.csv("merged_GA_result_NORMALIZED.csv", row.names = 1) 
 loci_of_interest <- readRDS("loci_of_interest.RDS")
 ##########################################
 
@@ -414,7 +414,7 @@ pca_df <- merge(pca_df, clusters, by =c("amplicon"))
 variance_explained <- summary(pca_result)$importance["Proportion of Variance", ]
 
 ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA), fill = percentage_used, shape = factor(cluster_3))) +
-  geom_point(size = 6, alpha = ifelse(!is.na(pca_df$loci), 1, 0.4), stroke = 1.5) +
+  geom_point(size = 6, alpha = ifelse(!is.na(pca_df$loci), 1, 0.7), stroke = 1.5) +
   labs(title = "PCA of co-occurrence of amplicons in GA solutions + Clustering",
        x = paste("PC1 (", round(variance_explained[1] * 100, 2), "%)", sep = ""),
        y = paste("PC2 (", round(variance_explained[2] * 100, 2), "%)", sep = "")) +
@@ -424,7 +424,7 @@ ggplot(pca_df, aes(PC1, PC2, color = ifelse(!is.na(loci), loci, NA), fill = perc
   theme_minimal()
 
 
-OPTIMIZED_SET_OF_AMPLICONS <- pca_df[pca_df$cluster_3 == 1,]$amplicon
+OPTIMIZED_SET_OF_AMPLICONS <- pca_df[pca_df$cluster_3 != 3,]$amplicon #keep clusters 1 and 2
 
 print(paste0("OPTIMIZED_SET_OF_AMPLICONS = ", length(OPTIMIZED_SET_OF_AMPLICONS)))
 
