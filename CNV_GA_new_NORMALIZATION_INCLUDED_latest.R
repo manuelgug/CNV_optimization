@@ -160,6 +160,15 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   fitness_function <- function(amplicon_indices, sample_name = sample_name_) {
     selected_amplicons <- subsetAmplicons(amplicon_indices, unique_amplicons)
     
+    # Ensure at least one amplicon from each locus of interest is selected
+    for (locus in names(loci_of_interest)) {
+      locus_amplicons <- loci_of_interest[[locus]]
+      if (all(!(locus_amplicons %in% selected_amplicons))) {
+        # If none of the locus amplicons are selected, select one randomly
+        selected_amplicons <- c(selected_amplicons, sample(locus_amplicons, 1))
+      }
+    }
+    
     # Expected loci fc
     expected_foldchanges_loci <- expected_foldchanges[expected_foldchanges$control_name == sample_name, ][3:4]
     
@@ -179,30 +188,29 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
     for (control in unique_controls){
       
       controls_CNV <- estCNV(data = amplicon_coverage_formatted[amplicon_coverage_formatted$SampleID == control,], sample.name = control, plot.gam = FALSE)
+      
+      if (!is.list(controls_CNV)) {# Skip to the next iteration if controls_CNV is not a list, which means the single-copy control was bad quality. skip to next (hopefully there's at least one good)
+        next  
+      }
+      
       fc_controls_ <- as.data.frame(controls_CNV$fc.locus[expected_foldchanges_loci$locus])
       
       # Append new columns to fc_controls
       fc_controls <- cbind(fc_controls, fc_controls_)
     }
     
-    fc_controls
+    #fc_controls
     fc_controls <- fc_controls[,-1]
     
-    #mean fc of single-copy controls
-    fc_controls_norm_factor <- as.data.frame(rowMeans(fc_controls))
-    colnames(fc_controls_norm_factor) <- "norm_factor"
-    
-    fc_controls_norm_factor[fc_controls_norm_factor < 0.001] <- 0
+    # if there was at elast 1 good quality control, do this
+    if (ncol(fc_controls) != 0){
+      fc_controls_norm_factor <- as.data.frame(rowMeans(fc_controls))
+      colnames(fc_controls_norm_factor) <- "norm_factor"
+
+      fc_controls_norm_factor[fc_controls_norm_factor < 0.001] <- 0
+      }
     ###############################################################################
     
-    # Ensure at least one amplicon from each locus of interest is selected
-    for (locus in names(loci_of_interest)) {
-      locus_amplicons <- loci_of_interest[[locus]]
-      if (all(!(locus_amplicons %in% selected_amplicons))) {
-        # If none of the locus amplicons are selected, select one randomly
-        selected_amplicons <- c(selected_amplicons, sample(locus_amplicons, 1))
-      }
-    }
     
     # Exclude amplicons not in the selected set
     excluded_amplicons <- setdiff(unique_amplicons, selected_amplicons)
@@ -228,15 +236,16 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
    observed_foldchanges_loci <- observed_foldchanges_loci[-1]
     
 
-    
-    #apply normalization factor
-    observed_foldchanges_loci <-  as.data.frame(observed_foldchanges_loci$observed_foldchange/fc_controls_norm_factor$norm_factor)
-
-    colnames(observed_foldchanges_loci) <- "observed_foldchange"
-    rownames(observed_foldchanges_loci) <- rownames(fc_controls_norm_factor)
-    
-    #Change Inf values to 0. Infs appear as a result of 0/0 division during normalization
-    #observed_foldchanges_loci[observed_foldchanges_loci$observed_foldchange == Inf] <- 0
+   if (ncol(fc_controls) != 0){ # if there was at elast 1 good quality control, normalize. else, don't normalize
+      #apply normalization factor
+      observed_foldchanges_loci <-  as.data.frame(observed_foldchanges_loci$observed_foldchange/fc_controls_norm_factor$norm_factor)
+  
+      colnames(observed_foldchanges_loci) <- "observed_foldchange"
+      rownames(observed_foldchanges_loci) <- rownames(fc_controls_norm_factor)
+      
+      #Change Inf values to 0. Infs appear as a result of 0/0 division during normalization
+      #observed_foldchanges_loci[observed_foldchanges_loci$observed_foldchange == Inf] <- 0
+   }
 
     # Calculate RMSE
     rmse <- sqrt(mean((expected_foldchanges_loci$expected_foldchange - observed_foldchanges_loci$observed_foldchange)^2))
@@ -250,10 +259,10 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   plot_fitness <- function(obj) {
     plot(obj)
   }
-  
+
   # Define GA parameters
   pop_size <- 100
-  generations <- 40
+  generations <- 50
   mutation_prob <- 0.2
   crossover_prob <- 0.8
   elitism <- 10
@@ -263,7 +272,7 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   ga_result <- ga(type = "binary", fitness = fitness_function, nBits = chrom_length,
                   popSize = pop_size, maxiter = generations, pmutation = mutation_prob,
                   pcrossover = crossover_prob, elitism = elitism, keepBest = TRUE,
-                  run = 100, monitor = plot_fitness, seed = 420, parallel = 10)
+                  run = 100, monitor = plot_fitness, seed = 420, parallel = 25)
   
   # SOLUTION FROM GA
   used_amplicons <- as.numeric(ga_result@solution[1,]) #amplicons
