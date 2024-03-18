@@ -254,7 +254,7 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   # Define GA parameters
   pop_size <- 100
   generations <- 40
-  mutation_prob <- 0.1
+  mutation_prob <- 0.2
   crossover_prob <- 0.8
   elitism <- 10
   chrom_length <- length(unique_amplicons)
@@ -263,7 +263,7 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   ga_result <- ga(type = "binary", fitness = fitness_function, nBits = chrom_length,
                   popSize = pop_size, maxiter = generations, pmutation = mutation_prob,
                   pcrossover = crossover_prob, elitism = elitism, keepBest = TRUE,
-                  run = 100, monitor = plot_fitness, seed = 420)
+                  run = 100, monitor = plot_fitness, seed = 420, parallel = 10)
   
   # SOLUTION FROM GA
   used_amplicons <- as.numeric(ga_result@solution[1,]) #amplicons
@@ -278,7 +278,7 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   cat("\n")
   print(iteration_name)
   print(paste("Optimal # of amplicons =", n_amplicons))
-  print(paste("Lowest RMSE =", round(best_fitness, 5)))
+  print(paste("Lowest RMSE =", best_fitness))
   cat("\n")
   
   # Check if at least one amplicon from each locus of interest was used
