@@ -160,6 +160,9 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
   fitness_function <- function(amplicon_indices, sample_name = sample_name_) {
     selected_amplicons <- subsetAmplicons(amplicon_indices, unique_amplicons)
     
+    # Expected loci fc
+    expected_foldchanges_loci <- expected_foldchanges[expected_foldchanges$control_name == sample_name, ][3:4]
+    
     ###############################################################################
     #Subset single-copy control data for normalization
     controls <- amplicon_coverage_formatted[!grepl("(?i)Dd2|PM|HB3", amplicon_coverage_formatted$SampleID) & grepl("(?i)3D7", amplicon_coverage_formatted$SampleID), ]
@@ -200,9 +203,6 @@ for (i in seq_along(expected_foldchanges_filepaths)) {
         selected_amplicons <- c(selected_amplicons, sample(locus_amplicons, 1))
       }
     }
-    
-    # Expected loci fc
-    expected_foldchanges_loci <- expected_foldchanges[expected_foldchanges$control_name == sample_name, ][3:4]
     
     # Exclude amplicons not in the selected set
     excluded_amplicons <- setdiff(unique_amplicons, selected_amplicons)
@@ -310,7 +310,7 @@ for (i in 2:length(results_list)) {
 colnames(merged_GA_result)[-1] <- basename(names(results_list))
 
 #checkpoint
-#write.csv(merged_GA_result, "merged_GA_result.csv") ################################
+write.csv(merged_GA_result, "merged_GA_result_NORMALIZED.csv") ################################
 
 
 
